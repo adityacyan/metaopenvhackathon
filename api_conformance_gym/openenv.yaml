@@ -1,0 +1,96 @@
+spec_version: 1
+name: api_conformance_gym
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
+
+# Environment metadata
+description: "API Conformance Gym - Train RL agents to design robust, secure, and compliant REST API schemas"
+version: "1.0.0"
+author: "Meta PyTorch Hackathon 2026"
+tags: ["api-design", "openapi", "validation", "rl-training", "hackathon"]
+
+# OpenEnv compatibility
+openenv_version: ">=0.2.0"
+
+# Performance characteristics
+performance:
+  reset_latency_ms: 100
+  step_latency_ms: 500
+  state_latency_ms: 50
+  max_concurrent_agents: 10
+  max_episode_length: 10
+
+# Action and observation spaces
+action_space:
+  type: "object"
+  properties:
+    schema_json:
+      type: "string"
+      description: "JSON-stringified OpenAPI 3.0/3.1 schema"
+    iteration:
+      type: "integer"
+      minimum: 0
+      description: "Current iteration number"
+    metadata:
+      type: "object"
+      description: "Optional metadata"
+
+observation_space:
+  type: "object"
+  properties:
+    validation_errors:
+      type: "array"
+      description: "List of validation errors with actionable feedback"
+    error_count:
+      type: "integer"
+      minimum: 0
+      description: "Total number of validation errors"
+    validity_score:
+      type: "number"
+      minimum: 0.0
+      maximum: 1.0
+      description: "OpenAPI specification compliance score"
+    best_practices_score:
+      type: "number"
+      minimum: 0.0
+      maximum: 1.0
+      description: "API design best practices compliance score"
+    schema_feedback:
+      type: "string"
+      description: "Human-readable feedback summary"
+    iteration:
+      type: "integer"
+      minimum: 0
+      description: "Current iteration number"
+    episode_info:
+      type: "object"
+      description: "Episode metadata and statistics"
+    episode_done:
+      type: "boolean"
+      description: "Whether the episode is complete"
+
+# Reward function
+reward:
+  formula: "R = (V × 0.5) + (B × 0.3) - (E × 0.2)"
+  range: [-0.2, 1.0]
+  description: "Balanced reward considering validity, best practices, and error minimization"
+
+# Real-world utility
+utility:
+  domain: "API Design & Automated Validation"
+  real_world_tasks:
+    - "Library management API design"
+    - "E-commerce checkout API design"
+    - "User authentication system design"
+    - "Data analytics API design"
+    - "Scheduling system API design"
+    - "Content moderation API design"
+  learning_objectives:
+    - "OpenAPI 3.0/3.1 specification compliance"
+    - "REST API security best practices"
+    - "HTTP method correctness"
+    - "API documentation standards"
+    - "Authentication and authorization patterns"
+

@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+"""
+Inference Script for API Conformance Gym Environment
+
+This script provides a baseline implementation for the 2026 Meta PyTorch Hackathon.
+It uses the OpenAI API client to interact with the API Conformance Gym environment,
+demonstrating how to train agents to design robust REST API schemas.
+
+MANDATORY Environment Variables:
+- API_BASE_URL: The API endpoint for the LLM (default: active endpoint)
+- MODEL_NAME: The model identifier to use for inference (default: active model)  
+- HF_TOKEN or API_KEY: Your Hugging Face / API key
+- IMAGE_NAME: The name of the local image for docker environment
+
+STDOUT FORMAT:
+The script emits exactly three line types to stdout:
+- [START] task=<task_name> env=<benchmark> model=<model_name>
+- [STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
+- [END] success=<true|false> steps=<n> score=<0.000> rewards=<r1,r2,...,rn>
+
+Example Output:
+[START] task=api-design env=api_conformance_gym model=Qwen2.5-72B-Instruct
+[STEP] step=1 action={"openapi":"3.0.0",...} reward=0.30 done=false error=null
+[STEP] step=2 action={"openapi":"3.0.0",...} reward=0.65 done=false error=null
+[STEP] step=3 action={"openapi":"3.0.0",...} reward=0.85 done=true error=null
+[END] success=true steps=3 score=0.600 rewards=0.30,0.65,0.85
+"""
+
+import asyncio
+import json
+import os
+import textwrap
+from typing import List, Optional
+
+from openai import OpenAI
+
+try:
+    from api_conformance_gym import APIEnvClient, APIAction
+except ImportError:
+    from client import APIEnvClient
+    from models import APIAction
+
+# Environment configuration
+IMAGE_NAME = os.getenv("IMAGE_NAME")  # Docker image name
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+
+# Task configuration
+TASK_NAME = os.getenv("API_CONFORMANCE_GYM_TASK", "api-design")
+BENCHMARK = os.getenv("API_CONFORMANCE_GYM_BENCHMARK", "api_conformance_gym")
+MAX_STEPS = 10
+TEMPERATURE = 0.7
+MAX_TOKENS = 2000
+SUCCESS_SCORE_THRESHOLD = 0.7  # Normalized score in [0, 1]
+
+# Reward calculation constants
+MAX_REWARD_PER_STEP = 1.0  # Maximum possible reward per step
+MAX_TOTAL_REWARD = MAX_STEPS * MAX_REWARD_PER_STEP
+
+SYSTEM_PROMPT = textwrap.dedent("""
+You are an expert API architect tasked with designing robust, secure, and compliant REST API schemas.
+
+Your goal is to create valid OpenAPI 3.0/3.1 schemas that meet business requirements while following best practices:
+- Include proper authentication/security schemes
+- Use correct HTTP methods (GET for retrieval, POST for creation, etc.)
+- Provide comprehensive documentation
+- Follow RESTful naming conventions
+- Include proper error responses
+- Add request/response schemas
+
+You will receive:
+1. A business requirement describing the API to design
+2. Validation feedback from previous attempts (if any)
+
+Respond with ONLY a valid JSON OpenAPI schema - no explanations, no markdown, just the raw JSON.
+
+Example minimal structure:
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API Title",
+    "version": "1.0.0",
+    "description": "API description"
+  },
+  "servers": [{"url": "https://api.example.com/v1"}],
+  "paths": {
+    "/endpoint": {
+      "get": {
+        "summary": "Description",
+        "responses": {
+          "200": {"description": "Success"},
+          "404": {"description": "Not found"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "security": [{"bearerAuth": []}]
+}
+""").strip()
+
+
+def log_start(task: str, env: str, model: str) -> None:
+    """Log the start of an episode."""
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    """Log a single step."""
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    # Truncate action for readability but keep it informative
+    action_preview = action[:100] + "..." if len(action) > 100 else action
+    print(f"[STEP] step={step} action={action_preview} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
+
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    """Log the end of an episode."""
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+
+
+def build_user_prompt(
+    business_requirement: str,
+    step: int,
+    last_feedback: str,
+    last_reward: float,
+    history: List[str]
+) -> str:
+    """Build the user prompt for the LLM."""
+    history_block = "\n".join(history[-3:]) if history else "None"
+    
+    return textwrap.dedent(f"""
+    Business Requirement:
+    {business_requirement}
+    
+    Step: {step}
+    Last feedback: {last_feedback}
+    Last reward: {last_reward:.2f}
+    
+    Previous attempts:
+    {history_block}
+    
+    Design a complete OpenAPI 3.0/3.1 schema that addresses the business requirement and fixes any issues from the feedback.
+    Respond with ONLY the JSON schema - no explanations.
+    """).strip()
+
+
+def get_model_response(
+    client: OpenAI,
+    business_requirement: str,
+    step: int,
+    last_feedback: str,
+    last_reward: float,
+    history: List[str]
+) -> str:
+    """Get schema design from the model."""
+    user_prompt = build_user_prompt(business_requirement, step, last_feedback, last_reward, history)
+    
+    try:
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            stream=False,
+        )
+        
+        response = (completion.choices[0].message.content or "").strip()
+        
+        # Try to extract JSON if the response contains extra text
+        if response.startswith("```"):
+            # Remove markdown code blocks
+            lines = response.split("\n")
+            json_lines = []
+            in_json = False
+            for line in lines:
+                if line.strip().startswith("```"):
+                    in_json = not in_json
+                    continue
+                if in_json:
+                    json_lines.append(line)
+            response = "\n".join(json_lines)
+        
+        # Validate it's valid JSON
+        try:
+            json.loads(response)
+            return response
+        except json.JSONDecodeError:
+            # Return a minimal valid schema as fallback
+            return json.dumps({
+                "openapi": "3.0.0",
+                "info": {"title": "API", "version": "1.0.0"},
+                "paths": {},
+                "components": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}},
+                "security": [{"bearerAuth": []}]
+            })
+    
+    except Exception as exc:
+        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        # Return minimal valid schema as fallback
+        return json.dumps({
+            "openapi": "3.0.0",
+            "info": {"title": "Fallback API", "version": "1.0.0"},
+            "paths": {},
+            "components": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}},
+            "security": [{"bearerAuth": []}]
+        })
+
+
+async def main() -> None:
+    """Main inference loop."""
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    
+    # Initialize environment
+    if IMAGE_NAME:
+        env = await APIEnvClient.from_docker_image(IMAGE_NAME)
+    else:
+        env = APIEnvClient(base_url="http://localhost:8000")
+    
+    history: List[str] = []
+    rewards: List[float] = []
+    steps_taken = 0
+    score = 0.0
+    success = False
+    
+    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+    
+    try:
+        # Reset environment
+        result = await env.reset()
+        state = result.observation if hasattr(result, 'observation') else result
+        business_requirement = state.business_requirement
+        
+        last_feedback = "Starting new API design task"
+        last_reward = 0.0
+        
+        for step in range(1, MAX_STEPS + 1):
+            # Get schema design from model
+            schema_json = get_model_response(
+                client, business_requirement, step, last_feedback, last_reward, history
+            )
+            
+            # Create action
+            action = APIAction(schema_json=schema_json, iteration=step)
+            
+            # Execute step
+            result = await env.step(action)
+            observation = result.observation
+            reward = result.reward or 0.0
+            done = result.done
+            error = None  # No error handling in this baseline
+            
+            rewards.append(reward)
+            steps_taken = step
+            last_feedback = observation.schema_feedback
+            last_reward = reward
+            
+            # Log step
+            log_step(step=step, action=schema_json, reward=reward, done=done, error=error)
+            
+            # Update history
+            history.append(f"Step {step}: reward {reward:+.2f} - {last_feedback}")
+            
+            if done:
+                break
+        
+        # Calculate final score (normalized to [0, 1])
+        score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
+        score = min(max(score, 0.0), 1.0)  # Clamp to [0, 1]
+        success = score >= SUCCESS_SCORE_THRESHOLD
+        
+    except Exception as e:
+        print(f"[DEBUG] Execution error: {e}", flush=True)
+        success = False
+    
+    finally:
+        try:
+            await env.close()
+        except Exception as e:
+            print(f"[DEBUG] env.close() error: {e}", flush=True)
+        
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
