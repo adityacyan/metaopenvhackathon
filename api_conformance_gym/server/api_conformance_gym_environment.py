@@ -20,6 +20,7 @@ try:
     from .validators import ValidationPipeline
     from .reward import RewardCalculator
     from .llm_reward import HybridRewardCalculator
+    from .graders import TaskGradingSystem
 except ImportError:
     # Handle both relative and absolute imports
     import sys
@@ -36,6 +37,7 @@ except ImportError:
         from server.validators import ValidationPipeline
         from server.reward import RewardCalculator
         from server.llm_reward import HybridRewardCalculator
+        from server.graders import TaskGradingSystem
     except ImportError:
         # Last resort - try direct imports
         from api_conformance_gym.models import (
@@ -47,6 +49,7 @@ except ImportError:
         from api_conformance_gym.server.validators import ValidationPipeline
         from api_conformance_gym.server.reward import RewardCalculator
         from api_conformance_gym.server.llm_reward import HybridRewardCalculator
+        from api_conformance_gym.server.graders import TaskGradingSystem
 
 
 class APIEnvironment(Environment):
@@ -117,6 +120,9 @@ class APIEnvironment(Environment):
 
         self._reset_count = 0
         self._use_llm_grading = use_llm_grading
+        self._task_grading = TaskGradingSystem()
+        self._active_task_idx = 0
+        self._previous_task_score = 0.0
 
     def reset(self, seed: Optional[int] = None) -> APIObservation:
         """
@@ -137,6 +143,8 @@ class APIEnvironment(Environment):
         # Generate new episode ID and reset step count
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._reset_count += 1
+        self._active_task_idx = (self._reset_count - 1) % len(self._task_grading.graders)
+        self._previous_task_score = 0.0
 
         # Select business requirement
         business_requirement = random.choice(self.BUSINESS_REQUIREMENTS)
@@ -167,6 +175,8 @@ class APIEnvironment(Environment):
                 "iteration_count": 0,
                 "max_iterations": self.MAX_ITERATIONS,
                 "business_requirement": business_requirement,
+                "task_name": self._task_grading.graders[self._active_task_idx].task_name,
+                "task_difficulty": self._task_grading.graders[self._active_task_idx].difficulty,
             },
             episode_done=False,
         )
@@ -200,16 +210,47 @@ class APIEnvironment(Environment):
         # Validate the schema using the validation pipeline
         validation_result = self._validation_pipeline.validate(action.schema_json)
 
+        # Grade active task (easy/medium/hard) with deterministic criteria.
+        active_grader = self._task_grading.graders[self._active_task_idx]
+        task_grade = active_grader.grade(action.schema_json, validation_result)
+        task_score = task_grade.score
+        progress_delta = max(0.0, task_score - self._previous_task_score)
+
+        # Penalize clear undesirable behavior.
+        repeated_schema = bool(self._current_state.schema_history) and (
+            action.schema_json == self._current_state.schema_history[-1]
+        )
+        no_progress = self._current_state.iteration_count > 1 and progress_delta < 0.01
+        penalty = 0.0
+        if repeated_schema:
+            penalty += 0.10
+        if no_progress:
+            penalty += 0.05
+
         # Calculate reward (enhanced with LLM if enabled)
         if self._use_llm_grading:
-            reward = self._reward_calculator.calculate(
+            llm_reward = self._reward_calculator.calculate(
                 validation_result,
                 business_requirement=self._current_state.business_requirement,
                 schema_json=action.schema_json,
                 iteration=self._current_state.iteration_count,
             )
+            shaped_reward = RewardCalculator.calculate_shaped(
+                validation_result=validation_result,
+                task_score=task_score,
+                progress_delta=progress_delta,
+                penalty=penalty,
+            )
+            reward = max(0.0, min(1.0, (0.6 * shaped_reward) + (0.4 * llm_reward)))
         else:
-            reward = self._reward_calculator.calculate(validation_result)
+            reward = self._reward_calculator.calculate_shaped(
+                validation_result=validation_result,
+                task_score=task_score,
+                progress_delta=progress_delta,
+                penalty=penalty,
+            )
+
+        self._previous_task_score = task_score
 
         # Update state
         self._current_state.current_schema = action.schema_json
@@ -218,11 +259,13 @@ class APIEnvironment(Environment):
         self._current_state.error_history.append(validation_result.errors)
         self._current_state.total_reward += reward
 
-        # Check termination conditions
-        episode_done = self._current_state.iteration_count >= self.MAX_ITERATIONS or (
-            validation_result.validity_score == 1.0
-            and validation_result.best_practices_score == 1.0
+        # Check termination conditions with stricter completion criteria.
+        task_mastered = (
+            task_score >= 0.90
+            and validation_result.validity_score >= 0.90
+            and validation_result.best_practices_score >= 0.85
         )
+        episode_done = self._current_state.iteration_count >= self.MAX_ITERATIONS or task_mastered
         self._current_state.episode_done = episode_done
 
         # Generate human-readable feedback
@@ -235,6 +278,11 @@ class APIEnvironment(Environment):
             "iteration_count": self._current_state.iteration_count,
             "max_iterations": self.MAX_ITERATIONS,
             "business_requirement": self._current_state.business_requirement,
+            "task_name": active_grader.task_name,
+            "task_difficulty": active_grader.difficulty,
+            "task_score": task_score,
+            "progress_delta": progress_delta,
+            "penalty": penalty,
         }
 
         if episode_done:
@@ -243,11 +291,12 @@ class APIEnvironment(Environment):
                     "termination_reason": (
                         "max_iterations"
                         if self._current_state.iteration_count >= self.MAX_ITERATIONS
-                        else "perfect_schema"
+                        else "task_mastered"
                     ),
                     "final_validity_score": validation_result.validity_score,
                     "final_best_practices_score": validation_result.best_practices_score,
                     "total_reward": self._current_state.total_reward,
+                    "final_task_score": task_score,
                 }
             )
 

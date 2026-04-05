@@ -31,7 +31,8 @@ import json
 import os
 import sys
 import textwrap
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Optional, Tuple
 
 
 # Load environment variables from .env file
@@ -70,6 +71,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 ENV_SERVER_URL = os.getenv(
     "ENV_SERVER_URL", "http://localhost:8000"
 )  # Local server URL
+LOG_FILE_PATH = os.path.join(current_dir, "log.txt")
 
 # Validate API key
 if not API_KEY:
@@ -88,9 +90,10 @@ if not API_KEY:
 TASK_NAME = os.getenv("API_CONFORMANCE_GYM_TASK", "api-design")
 BENCHMARK = os.getenv("API_CONFORMANCE_GYM_BENCHMARK", "api_conformance_gym")
 MAX_STEPS = 10
-TEMPERATURE = 0.7
-MAX_TOKENS = 2000
-SUCCESS_SCORE_THRESHOLD = 0.7  # Normalized score in [0, 1]
+TEMPERATURE = 0.3
+MAX_TOKENS = 10000
+SUCCESS_SCORE_THRESHOLD = 0.5  # Normalized score in [0, 1]
+BASELINE_EPISODES = 3
 
 # Reward calculation constants
 MAX_REWARD_PER_STEP = 1.0  # Maximum possible reward per step
@@ -175,6 +178,31 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     )
 
 
+def _extract_components(schema_json: str) -> dict:
+    """Extract components object from a schema JSON string."""
+    try:
+        schema_obj = json.loads(schema_json)
+    except Exception:
+        return {}
+
+    components = schema_obj.get("components", {})
+    return components if isinstance(components, dict) else {}
+
+
+def log_components(
+    step: int, schema_json: str, reward: float, done: bool, source: str
+) -> None:
+    """Append per-step components to log.txt for offline inspection."""
+    components = _extract_components(schema_json)
+    timestamp = datetime.utcnow().isoformat() + "Z"
+    with open(LOG_FILE_PATH, "a", encoding="utf-8") as log_file:
+        log_file.write(
+            f"\n[{timestamp}] step={step} source={source} reward={reward:.3f} done={str(done).lower()}\n"
+        )
+        log_file.write(json.dumps(components, indent=2, ensure_ascii=False))
+        log_file.write("\n")
+
+
 def build_user_prompt(
     business_requirement: str,
     step: int,
@@ -210,7 +238,7 @@ def get_model_response(
     last_feedback: str,
     last_reward: float,
     history: List[str],
-) -> str:
+) -> Tuple[str, str]:
     """Get schema design from the model."""
     user_prompt = build_user_prompt(
         business_requirement, step, last_feedback, last_reward, history
@@ -246,13 +274,34 @@ def get_model_response(
         # Validate it's valid JSON
         try:
             json.loads(response)
-            return response
+            return response, "llm"
         except json.JSONDecodeError:
             # Return a minimal valid schema as fallback
-            return json.dumps(
+            return (
+                json.dumps(
+                    {
+                        "openapi": "3.0.0",
+                        "info": {"title": "API", "version": "1.0.0"},
+                        "paths": {},
+                        "components": {
+                            "securitySchemes": {
+                                "bearerAuth": {"type": "http", "scheme": "bearer"}
+                            }
+                        },
+                        "security": [{"bearerAuth": []}],
+                    }
+                ),
+                "fallback_invalid_json",
+            )
+
+    except Exception as exc:
+        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        # Return minimal valid schema as fallback
+        return (
+            json.dumps(
                 {
                     "openapi": "3.0.0",
-                    "info": {"title": "API", "version": "1.0.0"},
+                    "info": {"title": "Fallback API", "version": "1.0.0"},
                     "paths": {},
                     "components": {
                         "securitySchemes": {
@@ -261,59 +310,38 @@ def get_model_response(
                     },
                     "security": [{"bearerAuth": []}],
                 }
-            )
-
-    except Exception as exc:
-        print(f"[DEBUG] Model request failed: {exc}", flush=True)
-        # Return minimal valid schema as fallback
-        return json.dumps(
-            {
-                "openapi": "3.0.0",
-                "info": {"title": "Fallback API", "version": "1.0.0"},
-                "paths": {},
-                "components": {
-                    "securitySchemes": {
-                        "bearerAuth": {"type": "http", "scheme": "bearer"}
-                    }
-                },
-                "security": [{"bearerAuth": []}],
-            }
+            ),
+            "fallback_model_error",
         )
 
 
-async def main() -> None:
-    """Main inference loop."""
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-
-    # Initialize environment
-    if USE_DOCKER and IMAGE_NAME:
-        print(f"[INFO] Using Docker image: {IMAGE_NAME}")
-        env = await APIEnvClient.from_docker_image(IMAGE_NAME)
-    else:
-        print(f"[INFO] Connecting to local server: {ENV_SERVER_URL}")
-        env = APIEnvClient(base_url=ENV_SERVER_URL)
-
+async def run_episode(env: APIEnvClient, client: OpenAI, episode_index: int) -> dict:
+    """Run one episode and return episode metrics."""
     history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
 
-    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
-
     try:
-        # Reset environment
+        # Reset environment (task rotates server-side across resets)
         result = await env.reset()
-        # reset() returns StepResult with observation
         observation = result.observation
         business_requirement = observation.episode_info["business_requirement"]
+        task_name = observation.episode_info.get("task_name", TASK_NAME)
+        task_difficulty = observation.episode_info.get("task_difficulty", "unknown")
+
+        log_start(
+            task=f"{task_name}({task_difficulty})",
+            env=BENCHMARK,
+            model=MODEL_NAME,
+        )
 
         last_feedback = "Starting new API design task"
         last_reward = 0.0
 
         for step in range(1, MAX_STEPS + 1):
-            # Get schema design from model
-            schema_json = await asyncio.to_thread(
+            schema_json, source = await asyncio.to_thread(
                 get_model_response,
                 client,
                 business_requirement,
@@ -323,49 +351,106 @@ async def main() -> None:
                 history,
             )
 
-            # Create action
             action = APIAction(schema_json=schema_json, iteration=step)
-
-            # Execute step
             result = await env.step(action)
             observation = result.observation
             reward = result.reward or 0.0
             done = result.done
-            error = None  # No error handling in this baseline
+            error = None
 
             rewards.append(reward)
             steps_taken = step
             last_feedback = observation.schema_feedback
             last_reward = reward
 
-            # Log step
             log_step(
                 step=step, action=schema_json, reward=reward, done=done, error=error
             )
+            log_components(
+                step=step,
+                schema_json=schema_json,
+                reward=reward,
+                done=done,
+                source=f"{source};episode={episode_index};task={task_name}",
+            )
 
-            # Update history
             history.append(f"Step {step}: reward {reward:+.2f} - {last_feedback}")
-
             if done:
                 break
 
-        # Calculate final score normalized over executed steps so early completion is rewarded.
         executed_steps = max(steps_taken, 1)
         score = sum(rewards) / (executed_steps * MAX_REWARD_PER_STEP)
-        score = min(max(score, 0.0), 1.0)  # Clamp to [0, 1]
+        score = min(max(score, 0.0), 1.0)
         success = score >= SUCCESS_SCORE_THRESHOLD
+        return {
+            "task_name": task_name,
+            "task_difficulty": task_difficulty,
+            "steps": steps_taken,
+            "score": score,
+            "success": success,
+            "rewards": rewards,
+        }
 
     except Exception as e:
         print(f"[DEBUG] Execution error: {e}", flush=True)
-        success = False
+        with open(LOG_FILE_PATH, "a", encoding="utf-8") as log_file:
+            ts = datetime.utcnow().isoformat() + "Z"
+            log_file.write(f"\n[{ts}] episode={episode_index} execution_error={e}\n")
+        return {
+            "task_name": f"episode_{episode_index}",
+            "task_difficulty": "unknown",
+            "steps": steps_taken,
+            "score": score,
+            "success": False,
+            "rewards": rewards,
+        }
+
+
+async def main() -> None:
+    """Run reproducible baseline across all three tasks."""
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+
+    if USE_DOCKER and IMAGE_NAME:
+        print(f"[INFO] Using Docker image: {IMAGE_NAME}")
+        env = await APIEnvClient.from_docker_image(IMAGE_NAME)
+    else:
+        print(f"[INFO] Connecting to local server: {ENV_SERVER_URL}")
+        env = APIEnvClient(base_url=ENV_SERVER_URL)
+
+    with open(LOG_FILE_PATH, "w", encoding="utf-8") as log_file:
+        run_time = datetime.utcnow().isoformat() + "Z"
+        log_file.write(
+            f"[{run_time}] run_start task={TASK_NAME} env={BENCHMARK} model={MODEL_NAME} episodes={BASELINE_EPISODES}\n"
+        )
+
+    episode_results = []
+    try:
+        for episode_index in range(1, BASELINE_EPISODES + 1):
+            episode_result = await run_episode(env, client, episode_index)
+            episode_results.append(episode_result)
+            log_end(
+                success=episode_result["success"],
+                steps=episode_result["steps"],
+                score=episode_result["score"],
+                rewards=episode_result["rewards"],
+            )
+
+        aggregate_score = (
+            sum(item["score"] for item in episode_results) / len(episode_results)
+            if episode_results
+            else 0.0
+        )
+        passed = sum(1 for item in episode_results if item["success"])
+        print(
+            f"[BASELINE] episodes={len(episode_results)} passed={passed} aggregate_score={aggregate_score:.3f}",
+            flush=True,
+        )
 
     finally:
         try:
             await env.close()
         except Exception as e:
             print(f"[DEBUG] env.close() error: {e}", flush=True)
-
-        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 
 if __name__ == "__main__":
