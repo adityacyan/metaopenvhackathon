@@ -11,7 +11,23 @@ from typing import Dict
 from openenv.core import EnvClient
 from openenv.core.client_types import StepResult
 
-from .models import APIAction, APIObservation, APIState
+try:
+    from .models import APIAction, APIObservation, APIState
+except ImportError:
+    # Handle both relative and absolute imports
+    import sys
+    import os
+    
+    # Add current directory to path for absolute imports
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    
+    try:
+        from models import APIAction, APIObservation, APIState
+    except ImportError:
+        # Last resort - try direct import
+        from api_conformance_gym.models import APIAction, APIObservation, APIState
 
 
 class APIEnvClient(EnvClient[APIAction, APIObservation, APIState]):
@@ -80,7 +96,10 @@ class APIEnvClient(EnvClient[APIAction, APIObservation, APIState]):
         # Parse validation errors
         validation_errors = []
         for error_data in obs_data.get("validation_errors", []):
-            from .models import ValidationError
+            try:
+                from .models import ValidationError
+            except ImportError:
+                from models import ValidationError
             validation_errors.append(ValidationError(
                 error_type=error_data.get("error_type", ""),
                 severity=error_data.get("severity", "info"),
@@ -116,7 +135,10 @@ class APIEnvClient(EnvClient[APIAction, APIObservation, APIState]):
         Returns:
             APIState object with complete environment state and history
         """
-        from .models import ValidationResult, ValidationError
+        try:
+            from .models import ValidationResult, ValidationError
+        except ImportError:
+            from models import ValidationResult, ValidationError
         
         # Parse validation result if present
         validation_result = None

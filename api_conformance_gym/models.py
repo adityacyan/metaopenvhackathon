@@ -11,17 +11,24 @@ This module defines the core data structures for the api-conformance-gym OpenEnv
 which trains RL agents to design robust, secure, and compliant REST API schemas.
 """
 
+import warnings
 from typing import Any, Dict, List, Optional
-from datetime import datetime
-import time
 
 from openenv.core.env_server.types import Action, Observation, State
 from pydantic import BaseModel, Field, validator
 
+# APIAction intentionally mirrors OpenEnv payload key `schema_json`.
+# Silence the specific class construction warning to keep runtime output clean.
+warnings.filterwarnings(
+    "ignore",
+    message=r'Field name "schema_json" in "APIAction" shadows an attribute in parent "Action"',
+    category=UserWarning,
+)
+
 
 class ValidationError(BaseModel):
     """Represents a single validation error with actionable feedback.
-    
+
     Attributes:
         error_type: Category of error (e.g., "missing_auth", "invalid_method")
         severity: Error severity level ("critical", "warning", or "info")
@@ -29,6 +36,7 @@ class ValidationError(BaseModel):
         message: Human-readable error description
         suggestion: Actionable fix suggestion
     """
+
     error_type: str
     severity: str = Field(..., pattern="^(critical|warning|info)$")
     path: str
@@ -38,7 +46,7 @@ class ValidationError(BaseModel):
 
 class ValidationResult(BaseModel):
     """Aggregated validation results from the entire pipeline.
-    
+
     Attributes:
         is_valid: Overall validity flag (True only if errors list is empty)
         errors: List of all validation errors found
@@ -47,13 +55,14 @@ class ValidationResult(BaseModel):
         validation_stages: Per-stage results from validation pipeline
         timestamp: Unix timestamp when validation occurred
     """
+
     is_valid: bool
     errors: List[ValidationError] = Field(default_factory=list)
     validity_score: float = Field(..., ge=0.0, le=1.0)
     best_practices_score: float = Field(..., ge=0.0, le=1.0)
     validation_stages: Dict[str, Any] = Field(default_factory=dict)
     timestamp: float
-    
+
     @validator("is_valid")
     def validate_is_valid(cls, v, values):
         """Ensure is_valid is False if errors exist."""
@@ -65,23 +74,26 @@ class ValidationResult(BaseModel):
 
 class APIAction(Action):
     """Represents an agent's action - submitting an OpenAPI schema design.
-    
+
     Attributes:
         schema_json: JSON-stringified OpenAPI 3.0/3.1 schema
         iteration: Current iteration number for tracking
         metadata: Optional metadata (agent_id, timestamp, etc.)
     """
+
     schema_json: str = Field(..., description="JSON-stringified OpenAPI schema")
     iteration: int = Field(default=0, description="Current iteration number")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Optional metadata")
-    
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Optional metadata"
+    )
+
     @validator("schema_json")
     def validate_schema_json(cls, v):
         """Ensure schema_json is non-empty."""
         if not v or not isinstance(v, str):
             raise ValueError("schema_json must be a non-empty string")
         return v
-    
+
     @validator("iteration")
     def validate_iteration(cls, v):
         """Ensure iteration is non-negative."""
@@ -92,7 +104,7 @@ class APIAction(Action):
 
 class APIObservation(Observation):
     """Environment feedback to agent after action submission.
-    
+
     Attributes:
         validation_errors: Structured list of validation errors
         error_count: Total number of errors
@@ -102,7 +114,10 @@ class APIObservation(Observation):
         iteration: Current iteration number
         episode_info: Additional episode metadata
         episode_done: Whether episode is complete
+        reward: Step reward (for OpenEnv compatibility)
+        done: Episode done flag (for OpenEnv compatibility)
     """
+
     validation_errors: List[ValidationError] = Field(default_factory=list)
     error_count: int = Field(default=0)
     validity_score: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -111,7 +126,11 @@ class APIObservation(Observation):
     iteration: int = Field(default=0, ge=0)
     episode_info: Dict[str, Any] = Field(default_factory=dict)
     episode_done: bool = Field(default=False)
-    
+
+    # OpenEnv compatibility fields
+    reward: float = Field(default=0.0, description="Step reward")
+    done: bool = Field(default=False, description="Episode done flag")
+
     @validator("error_count")
     def validate_error_count(cls, v, values):
         """Ensure error_count matches validation_errors length."""
@@ -125,7 +144,7 @@ class APIObservation(Observation):
 
 class APIState(State):
     """Complete environment state at any point in time.
-    
+
     Attributes:
         business_requirement: Original natural language requirement
         current_schema: Current OpenAPI schema (JSON string) or None
@@ -135,7 +154,10 @@ class APIState(State):
         error_history: Error progression across iterations
         episode_done: Whether episode is complete
         total_reward: Cumulative reward across all steps
+        reward: Current step reward (for OpenEnv compatibility)
+        done: Episode done flag (for OpenEnv compatibility)
     """
+
     business_requirement: str = Field(..., min_length=1)
     current_schema: Optional[str] = None
     validation_result: Optional[ValidationResult] = None
@@ -144,7 +166,11 @@ class APIState(State):
     error_history: List[List[ValidationError]] = Field(default_factory=list)
     episode_done: bool = False
     total_reward: float = 0.0
-    
+
+    # OpenEnv compatibility fields
+    reward: float = Field(default=0.0, description="Current step reward")
+    done: bool = Field(default=False, description="Episode done flag")
+
     @validator("schema_history")
     def validate_schema_history(cls, v, values):
         """Ensure schema_history length matches iteration_count."""
@@ -152,7 +178,7 @@ class APIState(State):
         if len(v) != iteration_count:
             raise ValueError("schema_history length must equal iteration_count")
         return v
-    
+
     @validator("error_history")
     def validate_error_history(cls, v, values):
         """Ensure error_history length matches iteration_count."""

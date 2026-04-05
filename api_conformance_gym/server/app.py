@@ -30,58 +30,42 @@ Usage:
     # Or run directly:
     python -m server.app
 """
+import sys
+import os
+import uvicorn
+import argparse
 
 try:
     from openenv.core.env_server.http_server import create_app
-except Exception as e:  # pragma: no cover
-    raise ImportError(
-        "openenv is required for the web interface. Install dependencies with '\n    uv sync\n'"
-    ) from e
+except Exception as e:
+    raise ImportError("uv sync") from e
+
+d = os.path.dirname(os.path.abspath(__file__))
+p = os.path.dirname(d)
+if p not in sys.path:
+    sys.path.insert(0, p)
 
 try:
-    from ..models import APIAction, APIObservation
-    from .api_conformance_gym_environment import APIEnvironment
-except ModuleNotFoundError:
     from models import APIAction, APIObservation
-    from api_conformance_gym_environment import APIEnvironment
+    from server.api_conformance_gym_environment import APIEnvironment
+except ImportError:
+    from api_conformance_gym.models import APIAction, APIObservation
+    from api_conformance_gym.server.api_conformance_gym_environment import APIEnvironment
 
-
-# Create the app with web interface and README integration
 app = create_app(
     APIEnvironment,
     APIAction,
     APIObservation,
     env_name="api_conformance_gym",
-    max_concurrent_envs=10,  # Support multiple concurrent agents for training
+    max_concurrent_envs=10,
 )
 
-
-def main(host: str = "0.0.0.0", port: int = 8000):
-    """
-    Entry point for direct execution via uv run or python -m.
-
-    This function enables running the server without Docker:
-        uv run --project . server
-        uv run --project . server --port 8001
-        python -m api_conformance_gym.server.app
-
-    Args:
-        host: Host address to bind to (default: "0.0.0.0")
-        port: Port number to listen on (default: 8000)
-
-    For production deployments, consider using uvicorn directly with
-    multiple workers:
-        uvicorn api_conformance_gym.server.app:app --workers 4
-    """
-    import uvicorn
-
-    uvicorn.run(app, host=host, port=port)
-
+def main():
+    arg = argparse.ArgumentParser()
+    arg.add_argument("--host", default="0.0.0.0")
+    arg.add_argument("--port", type=int, default=8000)
+    a = arg.parse_args()
+    uvicorn.run(app, host=a.host, port=a.port)
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    main(port=args.port)
+    main()
