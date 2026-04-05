@@ -1,1 +1,22 @@
 .env
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# Local temporary test outputs
+test-output/
+test-results/
+tmp_test_*/
+
+# Local test scripts to ignore
+start_server.py
+test_environment.py
+test_inference_local.py
+test_llm_grading.py
+test_setup.py
+testmodelinference.py
+testmodelinference.py
