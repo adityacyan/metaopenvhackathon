@@ -955,3 +955,2907 @@
     }
   }
 }
+
+[2026-04-05T17:41:13.089986Z] step=3 source=llm;episode=2;task=Security & Authentication reward=0.677 done=false
+{
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    }
+  },
+  "schemas": {
+    "UserRegistration": {
+      "type": "object",
+      "required": [
+        "username",
+        "email",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8
+        }
+      }
+    },
+    "UserLogin": {
+      "type": "object",
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password"
+        }
+      }
+    },
+    "AuthToken": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string",
+          "description": "JWT access token"
+        },
+        "tokenType": {
+          "type": "string",
+          "enum": [
+            "Bearer"
+          ]
+        },
+        "expiresIn": {
+          "type": "integer",
+          "description": "Expiration time in seconds"
+        }
+      }
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "username": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "member",
+            "admin"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Book": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copiesTotal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "copiesAvailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BookCreate": {
+      "type": "object",
+      "required": [
+        "title",
+        "author",
+        "isbn",
+        "copiesTotal"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copiesTotal": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "BookUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copiesTotal": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BookListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Book"
+          }
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        },
+        "totalItems": {
+          "type": "integer"
+        },
+        "totalPages": {
+          "type": "integer"
+        }
+      }
+    },
+    "LoanCreate": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "Loan": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "checkoutDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "returnDate": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "returned",
+            "overdue"
+          ]
+        }
+      }
+    },
+    "LoanListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Loan"
+          }
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        },
+        "totalItems": {
+          "type": "integer"
+        },
+        "totalPages": {
+          "type": "integer"
+        }
+      }
+    },
+    "Fine": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "loanId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "amount": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0
+        },
+        "issuedDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "paid": {
+          "type": "boolean"
+        }
+      }
+    },
+    "FineListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Fine"
+          }
+        },
+        "totalAmount": {
+          "type": "number",
+          "format": "float"
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+
+[2026-04-05T17:42:56.506811Z] step=4 source=llm;episode=2;task=Security & Authentication reward=0.640 done=false
+{
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    }
+  },
+  "schemas": {
+    "UserRegister": {
+      "type": "object",
+      "required": [
+        "username",
+        "email",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "description": "Unique username"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "description": "Password (minimum 8 characters)"
+        }
+      }
+    },
+    "UserLogin": {
+      "type": "object",
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "description": "User password"
+        }
+      }
+    },
+    "AuthToken": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string",
+          "description": "JWT access token"
+        },
+        "tokenType": {
+          "type": "string",
+          "enum": [
+            "Bearer"
+          ],
+          "description": "Token type"
+        },
+        "expiresIn": {
+          "type": "integer",
+          "description": "Expiration time in seconds"
+        }
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "User identifier"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "member",
+            "admin"
+          ],
+          "description": "User role"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation timestamp"
+        }
+      }
+    },
+    "Book": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Book identifier"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the book"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author name"
+        },
+        "genre": {
+          "type": "string",
+          "description": "Genre or category"
+        },
+        "isbn": {
+          "type": "string",
+          "description": "International Standard Book Number"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Publication date"
+        },
+        "availableCopies": {
+          "type": "integer",
+          "description": "Number of copies currently available"
+        },
+        "totalCopies": {
+          "type": "integer",
+          "description": "Total copies owned by the library"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "author",
+        "availableCopies",
+        "totalCopies"
+      ]
+    },
+    "BookCreate": {
+      "type": "object",
+      "required": [
+        "title",
+        "author",
+        "totalCopies"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the book"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author name"
+        },
+        "genre": {
+          "type": "string",
+          "description": "Genre or category"
+        },
+        "isbn": {
+          "type": "string",
+          "description": "ISBN number"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Publication date"
+        },
+        "totalCopies": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of copies"
+        }
+      }
+    },
+    "BookUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the book"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author name"
+        },
+        "genre": {
+          "type": "string",
+          "description": "Genre or category"
+        },
+        "isbn": {
+          "type": "string",
+          "description": "ISBN number"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Publication date"
+        },
+        "totalCopies": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of copies"
+        },
+        "availableCopies": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Available copies"
+        }
+      }
+    },
+    "BookListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Book"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "description": "Current page number"
+        },
+        "pageSize": {
+          "type": "integer",
+          "description": "Number of items per page"
+        },
+        "totalItems": {
+          "type": "integer",
+          "description": "Total number of matching books"
+        },
+        "totalPages": {
+          "type": "integer",
+          "description": "Total number of pages"
+        }
+      }
+    },
+    "BorrowingCreate": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identifier of the book to checkout"
+        }
+      }
+    },
+    "Borrowing": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Borrowing record identifier"
+        },
+        "book": {
+          "$ref": "#/components/schemas/Book"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identifier of the borrowing user"
+        },
+        "checkoutDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date and time when the book was checked out"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date and time when the book is due"
+        },
+        "returnDate": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true,
+          "description": "Date and time when the book was returned"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "returned",
+            "overdue"
+          ],
+          "description": "Current status of the borrowing"
+        }
+      },
+      "required": [
+        "id",
+        "book",
+        "userId",
+        "checkoutDate",
+        "dueDate",
+        "status"
+      ]
+    },
+    "BorrowingListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Borrowing"
+          }
+        },
+        "totalItems": {
+          "type": "integer",
+          "description": "Total number of borrowings"
+        }
+      }
+    },
+    "Fine": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Fine identifier"
+        },
+        "borrowingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Related borrowing record"
+        },
+        "amount": {
+          "type": "number",
+          "format": "float",
+          "description": "Fine amount in USD"
+        },
+        "issuedDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date when the fine was issued"
+        },
+        "paid": {
+          "type": "boolean",
+          "description": "Whether the fine has been paid"
+        }
+      },
+      "required": [
+        "id",
+        "borrowingId",
+        "amount",
+        "issuedDate",
+        "paid"
+      ]
+    },
+    "FineListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Fine"
+          }
+        },
+        "totalItems": {
+          "type": "integer",
+          "description": "Total number of fines"
+        }
+      }
+    },
+    "Notification": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Notification identifier"
+        },
+        "message": {
+          "type": "string",
+          "description": "Notification message"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the notification was created"
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Whether the user has read the notification"
+        }
+      },
+      "required": [
+        "id",
+        "message",
+        "createdAt",
+        "read"
+      ]
+    },
+    "NotificationListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Notification"
+          }
+        },
+        "totalItems": {
+          "type": "integer",
+          "description": "Total number of notifications"
+        }
+      }
+    }
+  }
+}
+
+[2026-04-05T17:44:13.846356Z] step=5 source=llm;episode=2;task=Security & Authentication reward=0.677 done=false
+{
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    }
+  },
+  "schemas": {
+    "UserRegistration": {
+      "type": "object",
+      "required": [
+        "username",
+        "email",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8
+        }
+      }
+    },
+    "UserLogin": {
+      "type": "object",
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password"
+        }
+      }
+    },
+    "AuthToken": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string",
+          "description": "JWT access token"
+        },
+        "tokenType": {
+          "type": "string",
+          "enum": [
+            "Bearer"
+          ]
+        },
+        "expiresIn": {
+          "type": "integer",
+          "description": "Expiration time in seconds"
+        }
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "username": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BookCreate": {
+      "type": "object",
+      "required": [
+        "title",
+        "author",
+        "isbn",
+        "copiesAvailable"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "copiesAvailable": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BookUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "copiesAvailable": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BookResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "copiesAvailable": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BookListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/BookResponse"
+          }
+        },
+        "total": {
+          "type": "integer"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        }
+      }
+    },
+    "BorrowRequest": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Optional custom due date; defaults to 14 days from checkout"
+        }
+      }
+    },
+    "BorrowResponse": {
+      "type": "object",
+      "properties": {
+        "borrowId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "checkoutDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "checked_out",
+            "returned",
+            "overdue"
+          ]
+        }
+      }
+    },
+    "ReturnResponse": {
+      "type": "object",
+      "properties": {
+        "borrowId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "returnDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fineIncurred": {
+          "type": "number",
+          "format": "float",
+          "description": "Fine amount applied for late return, if any"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "returned"
+          ]
+        }
+      }
+    },
+    "OverdueListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/BorrowResponse"
+          }
+        },
+        "total": {
+          "type": "integer"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        }
+      }
+    },
+    "FineResponse": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "totalFine": {
+          "type": "number",
+          "format": "float"
+        },
+        "currency": {
+          "type": "string",
+          "example": "USD"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "borrowId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "overdueDays": {
+                "type": "integer"
+              },
+              "fineAmount": {
+                "type": "number",
+                "format": "float"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+[2026-04-05T17:45:41.884651Z] step=6 source=llm;episode=2;task=Security & Authentication reward=0.603 done=false
+{
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    }
+  },
+  "schemas": {
+    "UserRegistration": {
+      "type": "object",
+      "required": [
+        "username",
+        "email",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8
+        },
+        "fullName": {
+          "type": "string",
+          "maxLength": 100
+        }
+      }
+    },
+    "UserLogin": {
+      "type": "object",
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password"
+        }
+      }
+    },
+    "AuthToken": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string",
+          "description": "JWT access token"
+        },
+        "tokenType": {
+          "type": "string",
+          "enum": [
+            "Bearer"
+          ]
+        },
+        "expiresIn": {
+          "type": "integer",
+          "description": "Expiration time in seconds"
+        }
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "username": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "fullName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BookCreate": {
+      "type": "object",
+      "required": [
+        "title",
+        "author",
+        "isbn"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "isbn": {
+          "type": "string",
+          "pattern": "^[0-9-]{10,17}$"
+        },
+        "genre": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copiesAvailable": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1
+        }
+      }
+    },
+    "BookUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "isbn": {
+          "type": "string",
+          "pattern": "^[0-9-]{10,17}$"
+        },
+        "genre": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copiesAvailable": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BookResponse": {
+      "type": "object",
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copiesAvailable": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BookList": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/BookResponse"
+          }
+        }
+      }
+    },
+    "CheckoutRequest": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Optional custom due date; defaults to 14 days from checkout"
+        }
+      }
+    },
+    "CheckoutResponse": {
+      "type": "object",
+      "properties": {
+        "checkoutId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "checkoutDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "returned",
+            "overdue"
+          ]
+        }
+      }
+    },
+    "ReturnResponse": {
+      "type": "object",
+      "properties": {
+        "checkoutId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "returnDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "returned"
+          ]
+        },
+        "fineAmount": {
+          "type": "number",
+          "format": "float",
+          "description": "Fine applied for late return, if any"
+        }
+      }
+    },
+    "FineList": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/FineResponse"
+          }
+        }
+      }
+    },
+    "FineResponse": {
+      "type": "object",
+      "properties": {
+        "fineId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "checkoutId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "amount": {
+          "type": "number",
+          "format": "float"
+        },
+        "currency": {
+          "type": "string",
+          "example": "USD"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "unpaid",
+            "paid"
+          ]
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "paidAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        }
+      }
+    },
+    "FinePayment": {
+      "type": "object",
+      "required": [
+        "paymentMethod",
+        "amount"
+      ],
+      "properties": {
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "credit_card",
+            "debit_card",
+            "paypal",
+            "bank_transfer"
+          ]
+        },
+        "amount": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0
+        },
+        "transactionId": {
+          "type": "string",
+          "description": "Identifier from payment gateway"
+        }
+      }
+    },
+    "NotificationList": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Notification"
+          }
+        }
+      }
+    },
+    "Notification": {
+      "type": "object",
+      "properties": {
+        "notificationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "overdue"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "read": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  }
+}
+
+[2026-04-05T17:47:00.557478Z] step=7 source=llm;episode=2;task=Security & Authentication reward=0.603 done=false
+{
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    }
+  },
+  "schemas": {
+    "UserRegistration": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8
+        }
+      },
+      "required": [
+        "username",
+        "email",
+        "password"
+      ]
+    },
+    "LoginRequest": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string",
+          "format": "password"
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ]
+    },
+    "AuthToken": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string"
+        },
+        "tokenType": {
+          "type": "string",
+          "enum": [
+            "Bearer"
+          ]
+        },
+        "expiresIn": {
+          "type": "integer",
+          "description": "Seconds until token expiration"
+        }
+      },
+      "required": [
+        "accessToken",
+        "tokenType",
+        "expiresIn"
+      ]
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "username": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "member",
+            "admin"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "role",
+        "createdAt"
+      ]
+    },
+    "Book": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "totalCopies": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "availableCopies": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "author",
+        "isbn",
+        "totalCopies",
+        "availableCopies",
+        "createdAt"
+      ]
+    },
+    "BookCreate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "totalCopies": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "title",
+        "author",
+        "isbn",
+        "totalCopies"
+      ]
+    },
+    "BookUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "totalCopies": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BorrowRequest": {
+      "type": "object",
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "bookId"
+      ]
+    },
+    "ReturnRequest": {
+      "type": "object",
+      "properties": {
+        "borrowId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "borrowId"
+      ]
+    },
+    "BorrowRecord": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "borrowedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "returnedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "fineAccrued": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "bookId",
+        "borrowedAt",
+        "dueDate"
+      ]
+    },
+    "FineInfo": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "totalFine": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/BorrowRecord"
+          }
+        }
+      },
+      "required": [
+        "userId",
+        "totalFine",
+        "details"
+      ]
+    },
+    "FinePayment": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0.01
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "credit_card",
+            "paypal",
+            "bank_transfer"
+          ]
+        }
+      },
+      "required": [
+        "amount",
+        "paymentMethod"
+      ]
+    }
+  }
+}
+
+[2026-04-05T17:48:31.797801Z] step=8 source=llm;episode=2;task=Security & Authentication reward=0.567 done=false
+{
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    }
+  },
+  "schemas": {
+    "UserRegistration": {
+      "type": "object",
+      "required": [
+        "email",
+        "password",
+        "fullName"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8
+        },
+        "fullName": {
+          "type": "string",
+          "maxLength": 100
+        }
+      }
+    },
+    "UserLogin": {
+      "type": "object",
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password"
+        }
+      }
+    },
+    "AuthToken": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string",
+          "description": "JWT access token"
+        },
+        "tokenType": {
+          "type": "string",
+          "enum": [
+            "Bearer"
+          ]
+        },
+        "expiresIn": {
+          "type": "integer",
+          "description": "Expiration time in seconds"
+        }
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "fullName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BookCreate": {
+      "type": "object",
+      "required": [
+        "title",
+        "author",
+        "isbn",
+        "copies"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "isbn": {
+          "type": "string",
+          "pattern": "^[0-9-]{10,17}$"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copies": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "BookUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copies": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "BookResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "copiesAvailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalCopies": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "BookListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/BookResponse"
+          }
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        },
+        "totalItems": {
+          "type": "integer"
+        },
+        "totalPages": {
+          "type": "integer"
+        }
+      }
+    },
+    "BorrowRequest": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Optional custom due date; defaults to 14 days from checkout"
+        }
+      }
+    },
+    "BorrowingResponse": {
+      "type": "object",
+      "properties": {
+        "borrowingId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "book": {
+          "$ref": "#/components/schemas/BookResponse"
+        },
+        "borrowedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "borrowed",
+            "overdue",
+            "returned"
+          ]
+        }
+      }
+    },
+    "BorrowingListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/BorrowingResponse"
+          }
+        }
+      }
+    },
+    "ReturnResponse": {
+      "type": "object",
+      "properties": {
+        "borrowingId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "returnedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fineIncurred": {
+          "type": "number",
+          "format": "float",
+          "description": "Fine amount applied for late return, if any"
+        }
+      }
+    },
+    "NotificationListResponse": {
+      "type": "object",
+      "properties": {
+        "notifications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Notification"
+          }
+        }
+      }
+    },
+    "Notification": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "overdue",
+            "fine"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "read": {
+          "type": "boolean"
+        }
+      }
+    },
+    "FineResponse": {
+      "type": "object",
+      "properties": {
+        "totalOutstanding": {
+          "type": "number",
+          "format": "float"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/FineDetail"
+          }
+        }
+      }
+    },
+    "FineDetail": {
+      "type": "object",
+      "properties": {
+        "borrowingId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "amount": {
+          "type": "number",
+          "format": "float"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "incurredAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "FinePaymentRequest": {
+      "type": "object",
+      "required": [
+        "amount",
+        "paymentMethod"
+      ],
+      "properties": {
+        "amount": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0.01
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "credit_card",
+            "paypal",
+            "bank_transfer"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "maxLength": 100
+        }
+      }
+    },
+    "FinePaymentResponse": {
+      "type": "object",
+      "properties": {
+        "paymentId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "processed",
+            "failed"
+          ]
+        },
+        "processedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "remainingOutstanding": {
+          "type": "number",
+          "format": "float"
+        }
+      }
+    }
+  }
+}
+
+[2026-04-05T17:49:56.261929Z] step=9 source=llm;episode=2;task=Security & Authentication reward=0.681 done=false
+{
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    }
+  },
+  "schemas": {
+    "UserRegistration": {
+      "type": "object",
+      "required": [
+        "email",
+        "password",
+        "fullName"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8
+        },
+        "fullName": {
+          "type": "string"
+        }
+      }
+    },
+    "UserLogin": {
+      "type": "object",
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password"
+        }
+      }
+    },
+    "AuthToken": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string",
+          "description": "JWT access token"
+        },
+        "tokenType": {
+          "type": "string",
+          "enum": [
+            "Bearer"
+          ]
+        },
+        "expiresIn": {
+          "type": "integer",
+          "description": "Expiration time in seconds"
+        }
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "fullName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BookCreate": {
+      "type": "object",
+      "required": [
+        "title",
+        "author",
+        "isbn",
+        "copiesAvailable"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "copiesAvailable": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BookUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "copiesAvailable": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BookResponse": {
+      "type": "object",
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "copiesAvailable": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BookList": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/BookResponse"
+          }
+        }
+      }
+    },
+    "BorrowRequest": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "BorrowRecord": {
+      "type": "object",
+      "properties": {
+        "borrowId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "borrowedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "borrowed",
+            "returned",
+            "overdue"
+          ]
+        }
+      }
+    },
+    "ReturnRequest": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "ReturnResult": {
+      "type": "object",
+      "properties": {
+        "borrowId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "returnedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fineIncurred": {
+          "type": "number",
+          "format": "float",
+          "description": "Fine amount for late return, 0 if on time"
+        }
+      }
+    },
+    "FineSummary": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "totalFine": {
+          "type": "number",
+          "format": "float"
+        },
+        "currency": {
+          "type": "string",
+          "example": "USD"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/FineDetail"
+          }
+        }
+      }
+    },
+    "FineDetail": {
+      "type": "object",
+      "properties": {
+        "borrowId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "overdueDays": {
+          "type": "integer"
+        },
+        "fineAmount": {
+          "type": "number",
+          "format": "float"
+        }
+      }
+    },
+    "OverdueList": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "overdueItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/OverdueItem"
+          }
+        }
+      }
+    },
+    "OverdueItem": {
+      "type": "object",
+      "properties": {
+        "borrowId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "daysOverdue": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+
+[2026-04-05T17:51:24.713457Z] step=10 source=llm;episode=2;task=Security & Authentication reward=0.697 done=true
+{
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    }
+  },
+  "schemas": {
+    "UserRegistration": {
+      "type": "object",
+      "required": [
+        "email",
+        "password",
+        "fullName"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8
+        },
+        "fullName": {
+          "type": "string"
+        }
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "fullName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "AuthRequest": {
+      "type": "object",
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "format": "password"
+        }
+      }
+    },
+    "AuthResponse": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string"
+        },
+        "tokenType": {
+          "type": "string",
+          "example": "Bearer"
+        },
+        "expiresIn": {
+          "type": "integer",
+          "example": 3600
+        }
+      }
+    },
+    "Book": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "availableCopies": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BookCreate": {
+      "type": "object",
+      "required": [
+        "title",
+        "author",
+        "isbn",
+        "availableCopies"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "availableCopies": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BookUpdate": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "publishedDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "isbn": {
+          "type": "string"
+        },
+        "availableCopies": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "BorrowRequest": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "Borrowing": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "bookId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "borrowedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "returnedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "returned",
+            "overdue"
+          ]
+        }
+      }
+    },
+    "FineSummary": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "totalFine": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "borrowingId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "overdueDays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fineAmount": {
+                "type": "number",
+                "format": "float",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "responses": {
+    "BadRequest": {
+      "description": "Invalid request parameters or body",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        }
+      }
+    },
+    "Unauthorized": {
+      "description": "Authentication required or failed",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        }
+      }
+    },
+    "NotFound": {
+      "description": "Requested resource not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        }
+      }
+    },
+    "Conflict": {
+      "description": "Conflict with current state of the resource",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        }
+      }
+    }
+  }
+}
