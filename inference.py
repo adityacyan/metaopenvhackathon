@@ -474,6 +474,12 @@ async def main() -> None:
                     "rewards": [],
                 }
             episode_results.append(episode_result)
+            log_end(
+                success=episode_result["success"],
+                steps=episode_result["steps"],
+                score=episode_result["score"],
+                rewards=episode_result["rewards"],
+            )
 
         aggregate_score = (
             sum(item["score"] for item in episode_results) / len(episode_results)
@@ -494,23 +500,20 @@ async def main() -> None:
             print(f"[DEBUG] env.close() error: {e}", flush=True)
 
         if not episode_results:
-            episode_results.append(
-                {
-                    "task_name": "episode_0",
-                    "task_difficulty": "unknown",
-                    "steps": 0,
-                    "score": 0.01,
-                    "success": False,
-                    "rewards": [],
-                }
-            )
-
-        for episode_result in episode_results:
+            fallback_result = {
+                "task_name": "episode_0",
+                "task_difficulty": "unknown",
+                "steps": 0,
+                "score": 0.01,
+                "success": False,
+                "rewards": [],
+            }
+            episode_results.append(fallback_result)
             log_end(
-                success=episode_result["success"],
-                steps=episode_result["steps"],
-                score=episode_result["score"],
-                rewards=episode_result["rewards"],
+                success=fallback_result["success"],
+                steps=fallback_result["steps"],
+                score=fallback_result["score"],
+                rewards=fallback_result["rewards"],
             )
 
 
