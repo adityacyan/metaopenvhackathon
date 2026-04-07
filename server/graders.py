@@ -8,7 +8,7 @@
 Task Grading System for API Conformance Gym.
 
 This module implements programmatic graders for evaluating agent performance
-on real-world API design tasks. Each grader returns a score in [0.0, 1.0]
+on real-world API design tasks. Each grader returns a score in (0.0, 1.0)
 with clear, deterministic success/failure criteria.
 
 The grading system evaluates three distinct tasks of increasing difficulty:
@@ -18,6 +18,7 @@ The grading system evaluates three distinct tasks of increasing difficulty:
 """
 
 import json
+import math
 import re
 from typing import Dict, List, Tuple, Any, Optional
 from dataclasses import dataclass
@@ -53,9 +54,20 @@ class TaskGrader:
 
     @staticmethod
     def _strict_unit_interval(score: float) -> float:
-        """Clamp score to the open interval (0, 1)."""
+        """Force any value into the open interval (0, 1)."""
         epsilon = 1e-6
-        return min(max(score, epsilon), 1.0 - epsilon)
+        try:
+            numeric_score = float(score)
+        except (TypeError, ValueError):
+            return epsilon
+
+        if not math.isfinite(numeric_score):
+            return epsilon
+        if numeric_score <= 0.0:
+            return epsilon
+        if numeric_score >= 1.0:
+            return 1.0 - epsilon
+        return numeric_score
 
     def grade(self, schema_json: str, validation_result: ValidationResult) -> TaskGrade:
         """Grade the schema for this specific task."""
@@ -583,6 +595,7 @@ class TaskGradingSystem:
 
         for grader in self.graders:
             grade = grader.grade(schema_json, validation_result)
+            grade.score = TaskGrader._strict_unit_interval(grade.score)
             task_grades.append(grade)
             total_score += grade.score
             if grade.passed:

@@ -74,7 +74,7 @@ observation_space:
 # Reward function
 reward:
   formula: "R = 0.45*Q + 0.35*T + 0.20*P - K"
-  range: [0.0, 1.0]
+  range: (0.0, 1.0)
   description: "Trajectory-aware reward where Q is schema quality, T is task score, P is progress delta, and K is behavior penalty"
 
 # Real-world utility
